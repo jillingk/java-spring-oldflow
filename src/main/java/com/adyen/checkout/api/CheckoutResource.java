@@ -14,7 +14,7 @@ import org.springframework.web.servlet.view.RedirectView;
 import com.adyen.Client;
 import com.adyen.enums.Environment;
 import com.adyen.model.checkout.*;
-import com.adyen.service.Checkout;
+import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
 
 /**
@@ -28,11 +28,11 @@ public class CheckoutResource {
     @Value("${ADYEN_MERCHANT_ACCOUNT}")
     private String merchantAccount;
 
-    private final Checkout checkout;
+    private final PaymentsApi paymentsApi;
 
     public CheckoutResource(@Value("${ADYEN_API_KEY}") String apiKey) {
         var client = new Client(apiKey, Environment.TEST);
-        this.checkout = new Checkout(client);
+        this.paymentsApi = new PaymentsApi(client);
     }
 
     /**
@@ -49,7 +49,8 @@ public class CheckoutResource {
         paymentMethodsRequest.setChannel(PaymentMethodsRequest.ChannelEnum.WEB);
 
         log.info("REST request to get Adyen payment methods {}", paymentMethodsRequest);
-        var response = checkout.paymentMethods(paymentMethodsRequest);
+        PaymentMethodsResponse response = paymentsApi.paymentMethods(paymentMethodsRequest);
+        log.info(response.toJson());
         return ResponseEntity.ok()
             .body(response);
     }
@@ -62,13 +63,15 @@ public class CheckoutResource {
      * @throws ApiException from Adyen API.
      */
     @PostMapping("/initiatePayment")
-    public ResponseEntity<PaymentsResponse> payments(@RequestBody PaymentsRequest body, HttpServletRequest request) throws IOException, ApiException {
-        var paymentRequest = new PaymentsRequest();
+    public ResponseEntity<PaymentResponse> payments(@RequestBody String bodyRequest, HttpServletRequest request) throws IOException, ApiException {
+        var body = PaymentRequest.fromJson(bodyRequest);
+        System.out.println(bodyRequest);
+        var paymentRequest = new PaymentRequest();
         paymentRequest.setMerchantAccount(merchantAccount); // required
-        paymentRequest.setChannel(PaymentsRequest.ChannelEnum.WEB); // required
+        paymentRequest.setChannel(PaymentRequest.ChannelEnum.WEB); // required
 
         var amount = new Amount()
-            .currency(findCurrency(body.getPaymentMethod().getType()))
+            .currency(findCurrency(body.getPaymentMethod().getActualInstance().getClass().getTypeName()))
             .value(1000L); // value is 10€ in minor units
         paymentRequest.setAmount(amount);
 
@@ -88,7 +91,7 @@ public class CheckoutResource {
 
         paymentRequest.setPaymentMethod(body.getPaymentMethod());
 
-        var type = body.getPaymentMethod().getType();
+        var type = body.getPaymentMethod().getActualInstance().getClass().getTypeName();
         // required for Klarna
         if (type.contains("klarna")) {
             paymentRequest.setCountryCode("DE");
@@ -108,7 +111,7 @@ public class CheckoutResource {
         }
 
         log.info("REST request to make Adyen payment {}", paymentRequest);
-        var response = checkout.payments(paymentRequest);
+        var response = paymentsApi.payments(paymentRequest);
         return ResponseEntity.ok()
             .body(response);
     }
@@ -121,9 +124,9 @@ public class CheckoutResource {
      * @throws ApiException from Adyen API.
      */
     @PostMapping("/submitAdditionalDetails")
-    public ResponseEntity<PaymentsDetailsResponse> payments(@RequestBody PaymentsDetailsRequest detailsRequest) throws IOException, ApiException {
+    public ResponseEntity<PaymentDetailsResponse> payments(@RequestBody DetailsRequest detailsRequest) throws IOException, ApiException {
         log.info("REST request to make Adyen payment details {}", detailsRequest);
-        var response = checkout.paymentsDetails(detailsRequest);
+        var response = paymentsApi.paymentsDetails(detailsRequest);
         return ResponseEntity.ok()
             .body(response);
     }
@@ -137,19 +140,21 @@ public class CheckoutResource {
      */
     @GetMapping("/handleShopperRedirect")
     public RedirectView redirect(@RequestParam(required = false) String payload, @RequestParam(required = false) String redirectResult, @RequestParam String orderRef) throws IOException, ApiException {
-        var detailsRequest = new PaymentsDetailsRequest();
+        var detailsRequest = new DetailsRequest();
         if (redirectResult != null && !redirectResult.isEmpty()) {
-            detailsRequest.setDetails(Collections.singletonMap("redirectResult", redirectResult));
+            PaymentCompletionDetails paymentCompletionDetails = PaymentCompletionDetails.fromJson(redirectResult);
+            detailsRequest.setDetails(paymentCompletionDetails);
         } else if (payload != null && !payload.isEmpty()) {
-            detailsRequest.setDetails(Collections.singletonMap("payload", payload));
+            PaymentCompletionDetails paymentCompletionDetails2 = PaymentCompletionDetails.fromJson(payload);
+            detailsRequest.setDetails(paymentCompletionDetails2);
         }
 
         return getRedirectView(detailsRequest);
     }
 
-    private RedirectView getRedirectView(final PaymentsDetailsRequest detailsRequest) throws ApiException, IOException {
+    private RedirectView getRedirectView(final DetailsRequest detailsRequest) throws ApiException, IOException {
         log.info("REST request to handle payment redirect {}", detailsRequest);
-        var response = checkout.paymentsDetails(detailsRequest);
+        var response = paymentsApi.paymentsDetails(detailsRequest);
         var redirectURL = "/result/";
         switch (response.getResultCode()) {
             case AUTHORISED:

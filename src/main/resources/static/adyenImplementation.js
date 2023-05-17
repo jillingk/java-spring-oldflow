@@ -37,6 +37,7 @@ async function initCheckout() {
       },
       onSubmit: (state, component) => {
         if (state.isValid) {
+          alert("");
           handleSubmission(state, component, "/api/initiatePayment");
         }
       },
@@ -46,7 +47,7 @@ async function initCheckout() {
     };
     // `spring.jackson.default-property-inclusion=non_null` needs to set in
     // src/main/resources/application.properties to avoid NPE here
-    const checkout = new AdyenCheckout(configuration);
+    const checkout = await AdyenCheckout(configuration);
     checkout.create(type).mount(document.getElementById("payment"));
   } catch (error) {
     console.error(error);
