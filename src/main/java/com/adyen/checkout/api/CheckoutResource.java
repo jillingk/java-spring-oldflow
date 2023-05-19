@@ -161,13 +161,18 @@ public class CheckoutResource {
      */
     @GetMapping("/handleShopperRedirect")
     public RedirectView redirect(@RequestParam(required = false) String payload, @RequestParam(required = false) String redirectResult, @RequestParam String orderRef) throws IOException, ApiException {
-        log.info("skibidab");
+        log.info(redirectResult);
+        log.info(payload);
+        log.info(orderRef);
+
         var detailsRequest = new DetailsRequest();
         if (redirectResult != null && !redirectResult.isEmpty()) {
-            PaymentCompletionDetails paymentCompletionDetails = PaymentCompletionDetails.fromJson(redirectResult);
+            PaymentCompletionDetails paymentCompletionDetails = new PaymentCompletionDetails();
+            paymentCompletionDetails.setRedirectResult(redirectResult);
             detailsRequest.setDetails(paymentCompletionDetails);
         } else if (payload != null && !payload.isEmpty()) {
-            PaymentCompletionDetails paymentCompletionDetails2 = PaymentCompletionDetails.fromJson(payload);
+            PaymentCompletionDetails paymentCompletionDetails2 = new PaymentCompletionDetails();
+            paymentCompletionDetails2.setPayload(payload);
             detailsRequest.setDetails(paymentCompletionDetails2);
         }
 
