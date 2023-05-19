@@ -37,11 +37,15 @@ async function initCheckout() {
       },
       onSubmit: (state, component) => {
         if (state.isValid) {
-          alert("");
+          console.info("onSubmit");
+          console.info(state, component);
           handleSubmission(state, component, "/api/initiatePayment");
         }
       },
+
       onAdditionalDetails: (state, component) => {
+        console.info("onAdditionalDetails");
+        console.info(state, component);
         handleSubmission(state, component, "/api/submitAdditionalDetails");
       },
     };
@@ -102,18 +106,26 @@ async function callServer(url, data) {
 
 // Handles responses sent from your server to the client
 function handleServerResponse(res, component) {
+    console.log(res.resultCode);
   if (res.action) {
-    component.handleAction(res.action);
+    console.log(res.action.actualInstance);
+    let action = res.action.actualInstance;
+    if(action.type = "REDIRECT"){
+        action.type = "redirect"
+        console.log(action.method);
+    }
+    console.log(action);
+    component.handleAction(action);
   } else {
     switch (res.resultCode) {
-      case "Authorised":
+      case "AUTHORISED":
         window.location.href = "/result/success";
         break;
-      case "Pending":
-      case "Received":
+      case "PENDING":
+      case "RECEIVED":
         window.location.href = "/result/pending";
         break;
-      case "Refused":
+      case "REFUSED":
         window.location.href = "/result/failed";
         break;
       default:

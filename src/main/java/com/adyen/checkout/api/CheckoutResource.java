@@ -16,6 +16,8 @@ import com.adyen.enums.Environment;
 import com.adyen.model.checkout.*;
 import com.adyen.service.checkout.PaymentsApi;
 import com.adyen.service.exception.ApiException;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 /**
  * REST controller for using Adyen checkout API
@@ -64,14 +66,32 @@ public class CheckoutResource {
      */
     @PostMapping("/initiatePayment")
     public ResponseEntity<PaymentResponse> payments(@RequestBody String bodyRequest, HttpServletRequest request) throws IOException, ApiException {
-        var body = PaymentRequest.fromJson(bodyRequest);
-        System.out.println(bodyRequest);
+        log.info(bodyRequest);
+        // gson 
+        Gson gson = new Gson();
+        JsonObject obj = gson.fromJson(bodyRequest, JsonObject.class);
+        com.google.gson.JsonObject method = obj.getAsJsonObject("paymentMethod");
+        CheckoutPaymentMethod paymentMethod = CheckoutPaymentMethod.fromJson(method.toString());
+        log.info(paymentMethod.toString());
+
+        String type = method.getAsJsonPrimitive("type").toString();
+        log.info(type);
+
+        BrowserInfo browserInfo;
+        try {
+            JsonObject obj2 = gson.fromJson(bodyRequest, JsonObject.class);
+            com.google.gson.JsonObject browser = obj2.getAsJsonObject("browserInfo");
+            browserInfo = BrowserInfo.fromJson(browser.toString());
+        } catch (Exception exception){
+            browserInfo = new BrowserInfo();
+        }
+
         var paymentRequest = new PaymentRequest();
         paymentRequest.setMerchantAccount(merchantAccount); // required
         paymentRequest.setChannel(PaymentRequest.ChannelEnum.WEB); // required
 
         var amount = new Amount()
-            .currency(findCurrency(body.getPaymentMethod().getActualInstance().getClass().getTypeName()))
+            .currency(findCurrency(type))
             .value(1000L); // value is 10€ in minor units
         paymentRequest.setAmount(amount);
 
@@ -85,13 +105,13 @@ public class CheckoutResource {
         // required for 3ds2 native flow
         paymentRequest.setOrigin("http://localhost:8080");
         // required for 3ds2
-        paymentRequest.setBrowserInfo(body.getBrowserInfo());
+        paymentRequest.setBrowserInfo(browserInfo);
         // required by some issuers for 3ds2
         paymentRequest.setShopperIP(request.getRemoteAddr());
 
-        paymentRequest.setPaymentMethod(body.getPaymentMethod());
+        paymentRequest.setPaymentMethod(paymentMethod);
 
-        var type = body.getPaymentMethod().getActualInstance().getClass().getTypeName();
+        //var type2 = body.getPaymentMethod().getActualInstance().getClass().getTypeName();
         // required for Klarna
         if (type.contains("klarna")) {
             paymentRequest.setCountryCode("DE");
@@ -112,6 +132,7 @@ public class CheckoutResource {
 
         log.info("REST request to make Adyen payment {}", paymentRequest);
         var response = paymentsApi.payments(paymentRequest);
+        log.info(response.toJson());
         return ResponseEntity.ok()
             .body(response);
     }
@@ -140,6 +161,7 @@ public class CheckoutResource {
      */
     @GetMapping("/handleShopperRedirect")
     public RedirectView redirect(@RequestParam(required = false) String payload, @RequestParam(required = false) String redirectResult, @RequestParam String orderRef) throws IOException, ApiException {
+        log.info("skibidab");
         var detailsRequest = new DetailsRequest();
         if (redirectResult != null && !redirectResult.isEmpty()) {
             PaymentCompletionDetails paymentCompletionDetails = PaymentCompletionDetails.fromJson(redirectResult);
