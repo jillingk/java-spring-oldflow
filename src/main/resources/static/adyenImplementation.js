@@ -35,16 +35,16 @@ async function initCheckout() {
           },
         }
       },
+      // Why does this component return a data object that we cannot serialise as a PaymentRequest? (contain random params
+      // like clientStateIndicator
       onSubmit: (state, component) => {
         if (state.isValid) {
-          console.info("onSubmit");
           console.info(state, component);
           handleSubmission(state, component, "/api/initiatePayment");
         }
       },
 
       onAdditionalDetails: (state, component) => {
-        console.info("onAdditionalDetails");
         console.info(state, component);
         handleSubmission(state, component, "/api/submitAdditionalDetails");
       },
@@ -106,15 +106,12 @@ async function callServer(url, data) {
 
 // Handles responses sent from your server to the client
 function handleServerResponse(res, component) {
-    console.log(res.resultCode);
   if (res.action) {
-    console.log(res.action.actualInstance);
     let action = res.action.actualInstance;
     if(action.type = "REDIRECT"){
+        // Why are we getting uppercase type here even though the component takes lowercase?
         action.type = "redirect"
-        console.log(action.method);
     }
-    console.log(action);
     component.handleAction(action);
   } else {
     switch (res.resultCode) {

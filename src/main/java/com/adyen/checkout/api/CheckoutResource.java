@@ -52,7 +52,6 @@ public class CheckoutResource {
 
         log.info("REST request to get Adyen payment methods {}", paymentMethodsRequest);
         PaymentMethodsResponse response = paymentsApi.paymentMethods(paymentMethodsRequest);
-        log.info(response.toJson());
         return ResponseEntity.ok()
             .body(response);
     }
@@ -66,16 +65,13 @@ public class CheckoutResource {
      */
     @PostMapping("/initiatePayment")
     public ResponseEntity<PaymentResponse> payments(@RequestBody String bodyRequest, HttpServletRequest request) throws IOException, ApiException {
-        log.info(bodyRequest);
-        // gson 
+        // Custom (de)serialization 
         Gson gson = new Gson();
         JsonObject obj = gson.fromJson(bodyRequest, JsonObject.class);
         com.google.gson.JsonObject method = obj.getAsJsonObject("paymentMethod");
         CheckoutPaymentMethod paymentMethod = CheckoutPaymentMethod.fromJson(method.toString());
-        log.info(paymentMethod.toString());
 
         String type = method.getAsJsonPrimitive("type").toString();
-        log.info(type);
 
         BrowserInfo browserInfo;
         try {
@@ -132,7 +128,6 @@ public class CheckoutResource {
 
         log.info("REST request to make Adyen payment {}", paymentRequest);
         var response = paymentsApi.payments(paymentRequest);
-        log.info(response.toJson());
         return ResponseEntity.ok()
             .body(response);
     }
@@ -161,10 +156,7 @@ public class CheckoutResource {
      */
     @GetMapping("/handleShopperRedirect")
     public RedirectView redirect(@RequestParam(required = false) String payload, @RequestParam(required = false) String redirectResult, @RequestParam String orderRef) throws IOException, ApiException {
-        log.info(redirectResult);
-        log.info(payload);
-        log.info(orderRef);
-
+        
         var detailsRequest = new DetailsRequest();
         if (redirectResult != null && !redirectResult.isEmpty()) {
             PaymentCompletionDetails paymentCompletionDetails = new PaymentCompletionDetails();
